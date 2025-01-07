@@ -10,6 +10,7 @@ receivers, as well as cameras.
 
 import os
 from importlib_resources import files
+from typing import overload
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -117,11 +118,15 @@ class Scene:
 
         return cls._instance
 
-    def __init__(self, env_filename = None, dtype = tf.complex64):
+    @overload
+    def __init__(self, env_filename: str = None, dtype = tf.complex64) -> None: ...
+    @overload
+    def __init__(self, env_scene: mi.Scene = None, dtype = tf.complex64) -> None: ...
+    def __init__(self, arg = None, dtype = tf.complex64):
 
-        # If a filename is provided, loads the scene from it.
+        # If an argument is provided, loads the scene from it.
         # The previous scene is overwritten.
-        if env_filename:
+        if arg:
 
             if dtype not in (tf.complex64, tf.complex128):
                 msg = "`dtype` must be tf.complex64 or tf.complex128`"
@@ -146,14 +151,20 @@ class Scene:
 
             # Load the scene
             # Keep track of the Mitsuba scene
-            if env_filename == "__empty__":
-                # Set an empty scene
-                self._scene = mi.load_dict({"type": "scene",
-                                            "integrator": {
-                                                "type": "path",
-                                            }})
+            if isinstance(env_filename := arg, str):
+                if env_filename == "__empty__":
+                    # Set an empty scene
+                    self._scene = mi.load_dict({"type": "scene",
+                                                "integrator": {
+                                                    "type": "path",
+                                                }})
+                else:
+                    self._scene = mi.load_file(env_filename, parallel=False)
+            elif isinstance(env_scene := arg, mi.Scene):
+                self._scene = env_scene
             else:
-                self._scene = mi.load_file(env_filename, parallel=False)
+                msg = "First argument must be `str` or `mi.Scene`"
+                raise ValueError(msg)
             self._scene_params = mi.traverse(self._scene)
 
             # Load the cameras
